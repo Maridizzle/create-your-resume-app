@@ -9,6 +9,13 @@ router.use(requireAuth);
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// Claude sometimes wraps its JSON reply in a ```json ... ``` fence despite
+// being told not to, strip that before parsing.
+function extractJson(raw) {
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  return (fenced ? fenced[1] : raw).trim();
+}
+
 function buildChecklist(jsonData) {
   const jobs = jsonData.jobs || [];
   return [
@@ -65,7 +72,13 @@ router.post('/:clientId/checklist', async (req, res) => {
       role: row.role === 'assistant' ? 'assistant' : 'user',
       content: row.message
     })),
-    { role: 'user', content: 'Generate the structured intake JSON now, based on the conversation above.' }
+    {
+      role: 'user',
+      content:
+        'Generate the structured intake JSON now, based on the conversation above. ' +
+        'Output ONLY a single JSON object with exactly these top-level keys: clientName, jobTitle, jobs, essayQuestions. ' +
+        'No other top-level keys (no notes, no strategy commentary), no markdown code fences, no text before or after the JSON.'
+    }
   ];
 
   let raw;
@@ -83,7 +96,7 @@ router.post('/:clientId/checklist', async (req, res) => {
   }
 
   try {
-    const jsonData = JSON.parse(raw);
+    const jsonData = JSON.parse(extractJson(raw));
     res.json({ clientId, jsonData, checklist: buildChecklist(jsonData) });
   } catch (err) {
     console.error('Checklist JSON parse failed', err.message, 'raw length:', raw.length, 'raw:', raw.slice(0, 2000));
