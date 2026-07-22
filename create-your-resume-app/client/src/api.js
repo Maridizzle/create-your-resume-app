@@ -55,6 +55,19 @@ async function* streamChatMessage(clientId, message) {
   }
 }
 
+async function extractResume(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  const res = await fetch(`${BASE}/clients/extract-resume`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+
 async function fetchBlob(path) {
   const res = await fetch(`${BASE}${path}`, { method: 'POST', credentials: 'include' });
   if (!res.ok) {
@@ -83,6 +96,9 @@ export const api = {
   createClient: (payload) => request('/clients', { method: 'POST', body: JSON.stringify(payload) }),
   getClient: (id) => request(`/clients/${id}`),
   setStage: (id, stage) => request(`/clients/${id}/stage`, { method: 'POST', body: JSON.stringify({ stage }) }),
+  extractResume,
+  suggestRole: (resumeText) =>
+    request('/clients/suggest-role', { method: 'POST', body: JSON.stringify({ resumeText }) }),
 
   getChatHistory: (clientId) => request(`/chat/${clientId}/history`),
   streamChatMessage,

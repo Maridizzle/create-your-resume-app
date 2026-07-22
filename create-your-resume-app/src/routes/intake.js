@@ -55,24 +55,39 @@ router.post('/:clientId/checklist', async (req, res) => {
     return res.status(400).json({ error: 'No chat transcript yet, nothing to build a checklist from' });
   }
 
+  // chat_logs naturally ends on the assistant's last reply (the point
+  // where the conversation paused), but Claude requires the messages
+  // array to end on a user turn, it doesn't support assistant-message
+  // prefill. Append a synthetic instruction so the array always ends
+  // in 'user' regardless of where the chat transcript actually left off.
+  const messages = [
+    ...history.rows.map((row) => ({
+      role: row.role === 'assistant' ? 'assistant' : 'user',
+      content: row.message
+    })),
+    { role: 'user', content: 'Generate the structured intake JSON now, based on the conversation above.' }
+  ];
+
+  let raw;
   try {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 8000,
+      max_tokens: 16000,
       system: SYSTEM_PROMPT,
-      messages: history.rows.map((row) => ({
-        role: row.role === 'assistant' ? 'assistant' : 'user',
-        content: row.message
-      }))
+      messages
     });
-
-    const raw = response.content.map((block) => (block.type === 'text' ? block.text : '')).join('');
-    const jsonData = JSON.parse(raw);
-
-    res.json({ clientId, jsonData, checklist: buildChecklist(jsonData) });
+    raw = response.content.map((block) => (block.type === 'text' ? block.text : '')).join('');
   } catch (err) {
     console.error('Checklist generation failed', err.message);
-    res.status(502).json({ error: 'Could not generate intake JSON from the transcript' });
+    return res.status(502).json({ error: 'Could not generate intake JSON from the transcript' });
+  }
+
+  try {
+    const jsonData = JSON.parse(raw);
+    res.json({ clientId, jsonData, checklist: buildChecklist(jsonData) });
+  } catch (err) {
+    console.error('Checklist JSON parse failed', err.message, 'raw length:', raw.length, 'raw:', raw.slice(0, 2000));
+    res.status(502).json({ error: 'Claude did not return valid JSON, see server logs' });
   }
 });
 
