@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import OrbitTracker from '../components/OrbitTracker';
 import { api } from '../api';
@@ -10,6 +10,17 @@ export default function Link() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    api
+      .getIntake(id)
+      .then((intake) => {
+        if (intake.intake_url) setIntakeUrl(intake.intake_url);
+      })
+      .catch(() => {
+        // No intake JSON yet, that's fine, the generate button below handles it.
+      });
+  }, [id]);
 
   async function handleGenerate() {
     setLoading(true);
