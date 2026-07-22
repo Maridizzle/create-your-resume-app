@@ -55,9 +55,11 @@ async function* streamChatMessage(clientId, message) {
   }
 }
 
-async function extractResume(file) {
+async function extractResume(files) {
   const formData = new FormData();
-  formData.append('file', file);
+  for (const file of files) {
+    formData.append('files', file);
+  }
   const res = await fetch(`${BASE}/clients/extract-resume`, {
     method: 'POST',
     credentials: 'include',
