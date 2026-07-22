@@ -22,7 +22,7 @@ app.use(express.json({ limit: '5mb' })); // resumes can be long
 
 // Don't log request bodies, client PII lives there.
 morgan.token('safe-url', (req) => req.originalUrl.split('?')[0]);
-app.use(morgan(':method :safe-url :status :response-ms ms'));
+app.use(morgan(':method :safe-url :status :response-time ms'));
 
 app.use(
   session({
