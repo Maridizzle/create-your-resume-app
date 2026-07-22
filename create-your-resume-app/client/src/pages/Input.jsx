@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import OrbitTracker from '../components/OrbitTracker';
 import { api } from '../api';
@@ -11,7 +11,13 @@ export default function Input() {
   const [loading, setLoading] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
+  const [clients, setClients] = useState([]);
+  const [jumpClientId, setJumpClientId] = useState('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    api.listClients().then(setClients).catch(() => {});
+  }, []);
 
   async function suggestRoleIfEmpty(text) {
     if (targetRole.trim() || !text.trim()) return;
@@ -86,6 +92,30 @@ export default function Input() {
       <p className="sub">Intake pipeline, internal tool</p>
 
       <OrbitTracker activeStage="input" />
+
+      {clients.length > 0 && (
+        <div className="panel-card" style={{ marginBottom: 24 }}>
+          <p className="section-label">Existing clients</p>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <select value={jumpClientId} onChange={(e) => setJumpClientId(e.target.value)} style={{ marginBottom: 0 }}>
+              <option value="">Select a client...</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} — {c.target_role}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn-ghost"
+              disabled={!jumpClientId}
+              onClick={() => navigate(`/clients/${jumpClientId}/results`)}
+            >
+              Jump to results
+            </button>
+          </div>
+        </div>
+      )}
 
       <p className="section-label">New client intake</p>
       <form className="card" onSubmit={handleSubmit}>

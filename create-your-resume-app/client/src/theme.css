@@ -107,7 +107,7 @@ label {
   margin: 0 0 6px;
 }
 
-input[type=text], input[type=password], textarea {
+input[type=text], input[type=password], textarea, select {
   width: 100%;
   background: var(--void);
   border: 1px solid var(--border);
@@ -146,7 +146,7 @@ input[type=file]::file-selector-button {
   color: white;
 }
 
-input:focus, textarea:focus {
+input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--violet);
   box-shadow: 0 0 0 3px rgba(142,95,232,0.2);
