@@ -2,7 +2,7 @@ const express = require('express');
 const Anthropic = require('@anthropic-ai/sdk');
 const pool = require('../db/pool');
 const { requireAuth } = require('../middleware/auth');
-const { SYSTEM_PROMPT } = require('../services/intakeBuilderPrompt');
+const { INTAKE_JSON_PROMPT } = require('../services/intakeBuilderPrompt');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -73,7 +73,7 @@ router.post('/:clientId/checklist', async (req, res) => {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 16000,
-      system: SYSTEM_PROMPT,
+      system: INTAKE_JSON_PROMPT,
       messages
     });
     raw = response.content.map((block) => (block.type === 'text' ? block.text : '')).join('');

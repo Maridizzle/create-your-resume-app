@@ -35,7 +35,7 @@ export default function Input() {
     setExtracting(true);
     try {
       const { text } = await api.extractResume(files);
-      setResumeText(text);
+      setResumeText((prev) => (prev.trim() ? `${prev}\n\n${text}` : text));
       await suggestRoleIfEmpty(text);
     } catch (err) {
       setError(err.message);
@@ -90,7 +90,9 @@ export default function Input() {
       <p className="section-label">New client intake</p>
       <form className="card" onSubmit={handleSubmit}>
         <h2>New client intake</h2>
-        <p className="hint">Upload one or more resume files, or paste the text directly, and set the target role to begin.</p>
+        <p className="hint">
+          Upload one or more resume/LinkedIn files, or paste the text directly, and set the target role to begin.
+        </p>
 
         <label>Client name</label>
         <input
@@ -110,8 +112,17 @@ export default function Input() {
           onChange={(e) => setTargetRole(e.target.value)}
         />
 
-        <label>Resume files</label>
-        <input type="file" accept=".pdf,.docx" multiple onChange={handleFileChange} disabled={extracting} />
+        <label>Resume file(s)</label>
+        <input
+          type="file"
+          accept=".pdf,.docx"
+          multiple
+          onChange={handleFileChange}
+          disabled={extracting}
+        />
+        <p className="hint" style={{ marginTop: 4 }}>
+          Select multiple files at once (or add more later) to analyze a resume and LinkedIn export together.
+        </p>
 
         <label style={{ marginTop: 20 }}>
           Resume / LinkedIn content{extracting && <span style={{ color: 'var(--muted)', fontWeight: 400 }}> — extracting text...</span>}
