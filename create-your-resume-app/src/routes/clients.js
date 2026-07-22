@@ -61,8 +61,6 @@ router.post('/extract-resume', (req, res) => {
       console.error('Resume extraction failed', extractErr.message);
       res.status(422).json({ error: 'Could not extract text from one of those files' });
     }
-
-    res.json({ text: sections.join('\n\n') });
   });
 });
 
