@@ -26,30 +26,41 @@ const upload = multer({
   }
 });
 
-// Extracts plain text from an uploaded resume file (PDF or .docx), so the
-// Input screen can populate the same resumeText field the manual-paste
-// path already uses. Doesn't persist the file, extract and discard.
-router.post('/extract-resume', (req, res) => {
-  upload.single('file')(req, res, async (err) => {
-    if (err) return res.status(400).json({ error: err.message });
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+async function extractFileText(file) {
+  if (file.mimetype === 'application/pdf') {
+    const parser = new PDFParse({ data: file.buffer });
+    const result = await parser.getText();
+    await parser.destroy();
+    return result.text;
+  }
+  const result = await mammoth.extractRawText({ buffer: file.buffer });
+  return result.value;
+}
 
-    try {
-      let text;
-      if (req.file.mimetype === 'application/pdf') {
-        const parser = new PDFParse({ data: req.file.buffer });
-        const result = await parser.getText();
-        await parser.destroy();
-        text = result.text;
-      } else {
-        const result = await mammoth.extractRawText({ buffer: req.file.buffer });
-        text = result.value;
-      }
-      res.json({ text });
-    } catch (extractErr) {
-      console.error('Resume extraction failed', extractErr.message);
-      res.status(422).json({ error: 'Could not extract text from that file' });
+// Extracts plain text from one or more uploaded resume files (PDF or
+// .docx), combined into a single labeled block so the Input screen can
+// populate the same resumeText field the manual-paste path already uses,
+// and so the chat/checklist steps analyze all uploaded files together.
+// Doesn't persist the files, extract and discard.
+router.post('/extract-resume', (req, res) => {
+  upload.array('files', 10)(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
     }
+
+    const sections = [];
+    for (const file of req.files) {
+      try {
+        const text = await extractFileText(file);
+        sections.push(`=== ${file.originalname} ===\n${text.trim()}`);
+      } catch (extractErr) {
+        console.error('Resume extraction failed for', file.originalname, extractErr.message);
+        sections.push(`=== ${file.originalname} ===\n[Could not extract text from this file]`);
+      }
+    }
+
+    res.json({ text: sections.join('\n\n') });
   });
 });
 
