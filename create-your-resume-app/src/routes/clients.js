@@ -1,9 +1,85 @@
 const express = require('express');
+const multer = require('multer');
+const { PDFParse } = require('pdf-parse');
+const mammoth = require('mammoth');
+const Anthropic = require('@anthropic-ai/sdk');
 const pool = require('../db/pool');
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(requireAuth);
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(new Error('Only PDF and .docx files are supported'));
+    }
+    cb(null, true);
+  }
+});
+
+// Extracts plain text from an uploaded resume file (PDF or .docx), so the
+// Input screen can populate the same resumeText field the manual-paste
+// path already uses. Doesn't persist the file, extract and discard.
+router.post('/extract-resume', (req, res) => {
+  upload.single('file')(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    try {
+      let text;
+      if (req.file.mimetype === 'application/pdf') {
+        const parser = new PDFParse({ data: req.file.buffer });
+        const result = await parser.getText();
+        await parser.destroy();
+        text = result.text;
+      } else {
+        const result = await mammoth.extractRawText({ buffer: req.file.buffer });
+        text = result.value;
+      }
+      res.json({ text });
+    } catch (extractErr) {
+      console.error('Resume extraction failed', extractErr.message);
+      res.status(422).json({ error: 'Could not extract text from that file' });
+    }
+  });
+});
+
+// Suggests (doesn't replace) a target job title from the resume text, so
+// the Input screen can pre-fill the field while still letting Maride
+// override it.
+router.post('/suggest-role', async (req, res) => {
+  const { resumeText } = req.body;
+  if (!resumeText || !resumeText.trim()) {
+    return res.status(400).json({ error: 'resumeText required' });
+  }
+
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 50,
+      system:
+        "Given a resume, suggest the single most relevant target job title for this person's next role. Respond with only the job title, nothing else, no explanation, no punctuation beyond what the title itself needs.",
+      messages: [{ role: 'user', content: resumeText }]
+    });
+    const suggestedTitle = response.content
+      .map((block) => (block.type === 'text' ? block.text : ''))
+      .join('')
+      .trim();
+    res.json({ suggestedTitle });
+  } catch (err) {
+    console.error('Role suggestion failed', err.message);
+    res.status(502).json({ error: 'Could not suggest a target role' });
+  }
+});
 
 // List all clients, most recently updated first.
 router.get('/', async (req, res) => {

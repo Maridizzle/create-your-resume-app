@@ -9,7 +9,40 @@ export default function Input() {
   const [resumeText, setResumeText] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
   const navigate = useNavigate();
+
+  async function suggestRoleIfEmpty(text) {
+    if (targetRole.trim() || !text.trim()) return;
+    setSuggesting(true);
+    try {
+      const { suggestedTitle } = await api.suggestRole(text);
+      if (suggestedTitle) setTargetRole(suggestedTitle);
+    } catch {
+      // Suggestion is a convenience, not required, fail silently.
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
+  async function handleFileChange(e) {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setError('');
+    setExtracting(true);
+    try {
+      const { text } = await api.extractResume(file);
+      setResumeText(text);
+      await suggestRoleIfEmpty(text);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setExtracting(false);
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -57,7 +90,7 @@ export default function Input() {
       <p className="section-label">New client intake</p>
       <form className="card" onSubmit={handleSubmit}>
         <h2>New client intake</h2>
-        <p className="hint">Paste the resume text and set the target role to begin.</p>
+        <p className="hint">Upload a resume file, or paste the text directly, and set the target role to begin.</p>
 
         <label>Client name</label>
         <input
@@ -67,7 +100,9 @@ export default function Input() {
           onChange={(e) => setName(e.target.value)}
         />
 
-        <label>Target job title</label>
+        <label>
+          Target job title{suggesting && <span style={{ color: 'var(--muted)', fontWeight: 400 }}> — suggesting...</span>}
+        </label>
         <input
           type="text"
           placeholder="Healthcare Administration"
@@ -75,11 +110,17 @@ export default function Input() {
           onChange={(e) => setTargetRole(e.target.value)}
         />
 
-        <label>Resume / LinkedIn content</label>
+        <label>Resume file</label>
+        <input type="file" accept=".pdf,.docx" onChange={handleFileChange} disabled={extracting} />
+
+        <label style={{ marginTop: 20 }}>
+          Resume / LinkedIn content{extracting && <span style={{ color: 'var(--muted)', fontWeight: 400 }}> — extracting text...</span>}
+        </label>
         <textarea
-          placeholder="Paste resume text here"
+          placeholder="Paste resume text here, or upload a file above"
           value={resumeText}
           onChange={(e) => setResumeText(e.target.value)}
+          onBlur={(e) => suggestRoleIfEmpty(e.target.value)}
         />
 
         {error && <p className="error-text">{error}</p>}
