@@ -109,6 +109,14 @@ export default function Input() {
               type="button"
               className="btn-ghost"
               disabled={!jumpClientId}
+              onClick={() => navigate(`/clients/${jumpClientId}/link`)}
+            >
+              Jump to link
+            </button>
+            <button
+              type="button"
+              className="btn-ghost"
+              disabled={!jumpClientId}
               onClick={() => navigate(`/clients/${jumpClientId}/results`)}
             >
               Jump to results
