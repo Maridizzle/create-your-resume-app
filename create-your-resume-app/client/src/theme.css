@@ -1,0 +1,188 @@
+:root {
+  --void: #0B0E2E;
+  --panel: #171B47;
+  --panel-2: #1F2456;
+  --indigo: #5B4FE0;
+  --violet: #8E5FE8;
+  --magenta: #D6409F;
+  --starlight: #F3F1FA;
+  --muted: #9D97C4;
+  --border: #2C2F5E;
+  --green: #34D399;
+  --gray: #7A7896;
+  --blue: #60A5FA;
+  --orange: #F5A623;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  position: relative;
+  background:
+    radial-gradient(ellipse 900px 550px at 50% -10%, rgba(142,95,232,0.5), transparent 65%),
+    radial-gradient(ellipse 750px 500px at 100% 10%, rgba(214,64,159,0.35), transparent 60%),
+    radial-gradient(ellipse 650px 450px at 0% 100%, rgba(91,79,224,0.4), transparent 60%),
+    var(--void);
+  font-family: 'Inter', sans-serif;
+  color: var(--starlight);
+  min-height: 100vh;
+}
+
+/* Tiled star field. Must use background-size + background-repeat to
+   actually tile, a one-off set of radial gradients on the page canvas
+   renders invisibly. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(1.8px 1.8px at 25px 40px, rgba(255,255,255,1), transparent),
+    radial-gradient(1.4px 1.4px at 90px 120px, rgba(255,255,255,0.9), transparent),
+    radial-gradient(2px 2px at 150px 30px, rgba(255,255,255,1), transparent),
+    radial-gradient(1.4px 1.4px at 200px 95px, rgba(255,255,255,0.85), transparent),
+    radial-gradient(2px 2px at 60px 165px, rgba(255,255,255,1), transparent),
+    radial-gradient(1.4px 1.4px at 175px 175px, rgba(255,255,255,0.85), transparent),
+    radial-gradient(2.4px 2.4px at 110px 60px, rgba(214,64,159,0.9), transparent),
+    radial-gradient(2.4px 2.4px at 40px 200px, rgba(142,95,232,0.9), transparent);
+  background-size: 220px 220px;
+  background-repeat: repeat;
+}
+
+.wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
+
+h1.display {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 500;
+  font-size: 28px;
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 20px rgba(142,95,232,0.9), 0 0 44px rgba(214,64,159,0.5);
+}
+
+p.sub { color: var(--muted); font-size: 14px; margin: 0 0 40px; }
+
+.section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 16px;
+}
+
+/* Primary action card, magenta-to-indigo ombre */
+.card {
+  background: linear-gradient(135deg, #5C1B49 0%, #3B1E6B 50%, #241E6B 100%);
+  border: 1px solid rgba(142,95,232,0.6);
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 0 70px rgba(91,79,224,0.35), 0 0 0 1px rgba(142,95,232,0.15) inset;
+}
+
+/* Flat panel card, used for data displays where colored badges need a
+   calm background rather than the ombre wash */
+.panel-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+}
+
+.card h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 500;
+  font-size: 18px;
+  margin: 0 0 4px;
+}
+
+.card .hint { color: var(--muted); font-size: 13px; margin: 0 0 24px; }
+
+label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+
+input[type=text], input[type=password], textarea {
+  width: 100%;
+  background: var(--void);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: var(--starlight);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+textarea { min-height: 140px; resize: vertical; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.6; }
+
+input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--violet);
+  box-shadow: 0 0 0 3px rgba(142,95,232,0.2);
+}
+
+.btn-row { display: flex; justify-content: flex-end; gap: 12px; }
+
+button {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 11px 22px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--indigo), var(--magenta));
+  color: white;
+  box-shadow: 0 0 18px rgba(214,64,159,0.7), 0 0 40px rgba(214,64,159,0.4);
+}
+
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.error-text {
+  color: var(--magenta);
+  font-size: 13px;
+  margin: -12px 0 20px;
+}
+
+/* Orbit tracker */
+.orbit-wrap { position: relative; height: 120px; margin-bottom: 40px; }
+
+.orbit-path {
+  position: absolute; top: 50%; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--violet) 10%, var(--magenta) 50%, var(--violet) 90%, transparent);
+  box-shadow: 0 0 20px rgba(142,95,232,0.8);
+  transform: translateY(-50%);
+}
+
+.orbit-stages { position: relative; display: flex; justify-content: space-between; align-items: center; height: 100%; }
+
+.stage { display: flex; flex-direction: column; align-items: center; gap: 10px; position: relative; z-index: 2; }
+
+.stage .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--panel-2); border: 2px solid var(--border); }
+
+.stage.done .dot { background: var(--indigo); border-color: var(--indigo); }
+
+.stage.active .dot {
+  width: 20px; height: 20px; background: var(--magenta); border-color: var(--magenta);
+  box-shadow: 0 0 0 5px rgba(214,64,159,0.3), 0 0 24px rgba(214,64,159,0.9), 0 0 50px rgba(214,64,159,0.5);
+}
+
+.stage .label { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--muted); text-align: center; max-width: 74px; }
+
+.stage.active .label { color: var(--starlight); }
+.stage.done .label { color: var(--muted); }

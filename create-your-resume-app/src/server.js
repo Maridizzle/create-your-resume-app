@@ -57,8 +57,15 @@ app.use('/api/output', outputRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
-// TODO: serve the built React frontend from here once it exists, e.g.
-// app.use(express.static(path.join(__dirname, '../client/dist')));
+// Serve the built React frontend (client/dist, via vite's outDir into src/public).
+const path = require('path');
+const clientDist = path.join(__dirname, 'public');
+app.use(express.static(clientDist));
+
+// SPA fallback: any non-API route serves index.html, React Router handles the rest.
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(clientDist, 'index.html'));
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

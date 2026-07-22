@@ -1,4 +1,6 @@
 node_modules/
+client/node_modules/
+src/public/
 .env
 *.log
 .DS_Store
