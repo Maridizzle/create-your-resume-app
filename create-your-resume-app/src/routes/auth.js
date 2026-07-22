@@ -29,7 +29,10 @@ router.post('/login', async (req, res) => {
   }
 
   req.session.authenticated = true;
-  req.session.totpVerified = false;
+  // No second factor to verify if 2FA isn't set up on this account yet,
+  // otherwise requireAuth would permanently lock the account out since
+  // nothing else ever flips totpVerified to true.
+  req.session.totpVerified = !user.totp_enabled;
   req.session.userId = user.id;
 
   return res.json({ requiresTotp: user.totp_enabled });

@@ -2,7 +2,11 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Input from './pages/Input';
 import ClientsList from './pages/ClientsList';
-import ChatPlaceholder from './pages/ChatPlaceholder';
+import Chat from './pages/Chat';
+import Checklist from './pages/Checklist';
+import Link from './pages/Link';
+import Results from './pages/Results';
+import Output from './pages/Output';
 import AuthGuard from './components/AuthGuard';
 
 export default function App() {
@@ -30,7 +34,39 @@ export default function App() {
           path="/clients/:id/chat"
           element={
             <AuthGuard>
-              <ChatPlaceholder />
+              <Chat />
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/clients/:id/checklist"
+          element={
+            <AuthGuard>
+              <Checklist />
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/clients/:id/link"
+          element={
+            <AuthGuard>
+              <Link />
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/clients/:id/results"
+          element={
+            <AuthGuard>
+              <Results />
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/clients/:id/output"
+          element={
+            <AuthGuard>
+              <Output />
             </AuthGuard>
           }
         />

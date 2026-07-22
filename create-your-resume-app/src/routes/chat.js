@@ -2,18 +2,12 @@ const express = require('express');
 const Anthropic = require('@anthropic-ai/sdk');
 const pool = require('../db/pool');
 const { requireAuth } = require('../middleware/auth');
+const { SYSTEM_PROMPT } = require('../services/intakeBuilderPrompt');
 
 const router = express.Router();
 router.use(requireAuth);
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-// TODO: port the full "Intake Builder" system prompt from Project 2 here.
-// This is the prompt that turns a resume + target role into the era-aware
-// skills/activities/achievements JSON structure, era notes, isReal flags,
-// and the 5 essay questions, per the scoring rules (5 skills, 5 activities,
-// 3 achievements per job cap; 1 = not selected, never weakness).
-const SYSTEM_PROMPT = `[paste the full Intake Builder system prompt here]`;
 
 router.get('/:clientId/history', async (req, res) => {
   const result = await pool.query(

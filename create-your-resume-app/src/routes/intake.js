@@ -1,33 +1,83 @@
 const express = require('express');
-const crypto = require('crypto');
+const Anthropic = require('@anthropic-ai/sdk');
 const pool = require('../db/pool');
 const { requireAuth } = require('../middleware/auth');
+const { SYSTEM_PROMPT } = require('../services/intakeBuilderPrompt');
 
 const router = express.Router();
 router.use(requireAuth);
 
-// TODO: generate a review checklist from the chat transcript, confirming
-// nothing is missing before JSON generation: eras covered for every job,
-// achievements present or flagged suggested, no section over the caps
-// (5 skills, 5 activities, 3 achievements per job).
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+function buildChecklist(jsonData) {
+  const jobs = jsonData.jobs || [];
+  return [
+    {
+      item: 'All jobs identified with correct eras',
+      checked: jobs.length > 0 && jobs.every((j) => j.title && j.company && j.years)
+    },
+    {
+      item: 'Skills present for every job',
+      checked: jobs.every((j) => Array.isArray(j.skills) && j.skills.length > 0)
+    },
+    {
+      item: 'Activities present for every job',
+      checked: jobs.every((j) => Array.isArray(j.activities) && j.activities.length > 0)
+    },
+    {
+      item: 'Achievements present for every job, real vs suggested flagged',
+      checked: jobs.every(
+        (j) =>
+          Array.isArray(j.achievements) &&
+          j.achievements.length > 0 &&
+          j.achievements.every((a) => typeof a.isReal === 'boolean')
+      )
+    },
+    {
+      item: '5 essay questions generated',
+      checked: Array.isArray(jsonData.essayQuestions) && jsonData.essayQuestions.length === 5
+    }
+  ];
+}
+
+// Generates the structured intake JSON from the chat transcript via the
+// same Intake Builder prompt used in chat.js, then derives a pass/fail
+// checklist from the actual output so nothing is missing before the
+// client-facing link is generated.
 router.post('/:clientId/checklist', async (req, res) => {
   const { clientId } = req.params;
-  // Placeholder response shape, wire up to Claude once ported from Project 2.
-  res.json({
-    clientId,
-    checklist: [
-      { item: 'All jobs identified with correct eras', checked: false },
-      { item: 'Skills capped at 5 per job', checked: false },
-      { item: 'Activities capped at 5 per job', checked: false },
-      { item: 'Achievements capped at 3 per job', checked: false },
-      { item: 'Real vs suggested achievements flagged', checked: false }
-    ]
-  });
+
+  const history = await pool.query(
+    'SELECT role, message FROM chat_logs WHERE client_id = $1 ORDER BY created_at ASC',
+    [clientId]
+  );
+  if (history.rows.length === 0) {
+    return res.status(400).json({ error: 'No chat transcript yet, nothing to build a checklist from' });
+  }
+
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8000,
+      system: SYSTEM_PROMPT,
+      messages: history.rows.map((row) => ({
+        role: row.role === 'assistant' ? 'assistant' : 'user',
+        content: row.message
+      }))
+    });
+
+    const raw = response.content.map((block) => (block.type === 'text' ? block.text : '')).join('');
+    const jsonData = JSON.parse(raw);
+
+    res.json({ clientId, jsonData, checklist: buildChecklist(jsonData) });
+  } catch (err) {
+    console.error('Checklist generation failed', err.message);
+    res.status(502).json({ error: 'Could not generate intake JSON from the transcript' });
+  }
 });
 
-// TODO: port the Intake Builder JSON generation logic from Project 2.
-// Takes the chat transcript + target role, returns the structured JSON
-// (clientName, jobTitle, jobs[], essayQuestions[]).
+// Takes the structured intake JSON (produced by the checklist step above)
+// and persists it as a new version.
 router.post('/:clientId/generate', async (req, res) => {
   const { clientId } = req.params;
   const { jsonData } = req.body; // supplied once the generation step is wired in
@@ -50,21 +100,55 @@ router.post('/:clientId/generate', async (req, res) => {
   res.status(201).json(result.rows[0]);
 });
 
-// TODO: port admin.html's upload-and-generate-link logic. This should
-// push the intake JSON somewhere the client-facing form
-// (maridizzle.github.io/resume-bullet-menu) can load it, then return the
-// unique URL.
+// Pushes the intake JSON to the same Google Apps Script web app the old
+// admin.html tool used (action: 'storeIntake'). The Apps Script owns
+// token generation and storage, we just relay its response, we don't
+// invent our own URL scheme here.
 router.post('/:clientId/link', async (req, res) => {
   const { clientId } = req.params;
-  const token = crypto.randomBytes(8).toString('hex');
-  const intakeUrl = `https://maridizzle.github.io/resume-bullet-menu/?id=${token}`;
 
-  await pool.query('UPDATE intake_json SET intake_url = $1 WHERE client_id = $2 AND id = (SELECT id FROM intake_json WHERE client_id = $2 ORDER BY version DESC LIMIT 1)', [
-    intakeUrl,
-    clientId
-  ]);
+  const latest = await pool.query(
+    'SELECT * FROM intake_json WHERE client_id = $1 ORDER BY version DESC LIMIT 1',
+    [clientId]
+  );
+  const record = latest.rows[0];
+  if (!record) return res.status(400).json({ error: 'No intake JSON generated yet' });
 
-  res.json({ intakeUrl });
+  const jsonData = record.json_data;
+  const missing = [];
+  if (!jsonData.clientName) missing.push('clientName');
+  if (!jsonData.jobTitle) missing.push('jobTitle');
+  if (!Array.isArray(jsonData.jobs) || jsonData.jobs.length === 0) missing.push('jobs');
+  if (!Array.isArray(jsonData.essayQuestions) || jsonData.essayQuestions.length === 0) missing.push('essayQuestions');
+  if (missing.length > 0) {
+    return res.status(400).json({ error: `Intake JSON missing required fields: ${missing.join(', ')}` });
+  }
+
+  if (!process.env.APPS_SCRIPT_URL) {
+    return res.status(500).json({ error: 'APPS_SCRIPT_URL is not configured' });
+  }
+
+  try {
+    const scriptRes = await fetch(process.env.APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'storeIntake',
+        clientName: jsonData.clientName,
+        jobTitle: jsonData.jobTitle,
+        intakeJSON: jsonData
+      })
+    });
+    const data = await scriptRes.json();
+    if (!data.success) throw new Error(data.error || 'Apps Script did not report success');
+
+    await pool.query('UPDATE intake_json SET intake_url = $1 WHERE id = $2', [data.url, record.id]);
+
+    res.json({ intakeUrl: data.url });
+  } catch (err) {
+    console.error('Link generation failed', err.message);
+    res.status(502).json({ error: 'Could not generate client link' });
+  }
 });
 
 router.get('/:clientId', async (req, res) => {
