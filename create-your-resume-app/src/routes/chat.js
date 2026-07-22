@@ -2,7 +2,7 @@ const express = require('express');
 const Anthropic = require('@anthropic-ai/sdk');
 const pool = require('../db/pool');
 const { requireAuth } = require('../middleware/auth');
-const { SYSTEM_PROMPT } = require('../services/intakeBuilderPrompt');
+const { CHAT_SYSTEM_PROMPT } = require('../services/intakeBuilderPrompt');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -44,7 +44,7 @@ router.post('/:clientId/message', async (req, res) => {
     const stream = anthropic.messages.stream({
       model: 'claude-sonnet-4-6',
       max_tokens: 2000,
-      system: SYSTEM_PROMPT,
+      system: CHAT_SYSTEM_PROMPT,
       messages: history.rows.map((row) => ({
         role: row.role === 'assistant' ? 'assistant' : 'user',
         content: row.message

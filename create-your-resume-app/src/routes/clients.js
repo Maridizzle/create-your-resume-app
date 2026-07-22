@@ -26,29 +26,40 @@ const upload = multer({
   }
 });
 
-// Extracts plain text from an uploaded resume file (PDF or .docx), so the
-// Input screen can populate the same resumeText field the manual-paste
-// path already uses. Doesn't persist the file, extract and discard.
+async function extractText(file) {
+  if (file.mimetype === 'application/pdf') {
+    const parser = new PDFParse({ data: file.buffer });
+    const result = await parser.getText();
+    await parser.destroy();
+    return result.text;
+  }
+  const result = await mammoth.extractRawText({ buffer: file.buffer });
+  return result.value;
+}
+
+// Extracts plain text from one or more uploaded resume files (PDF or
+// .docx), so the Input screen can populate the same resumeText field the
+// manual-paste path already uses. Multiple files (e.g. a resume plus a
+// LinkedIn export) are combined into one labeled block so they get
+// analyzed together, not separately. Doesn't persist the files, extract
+// and discard.
 router.post('/extract-resume', (req, res) => {
-  upload.single('file')(req, res, async (err) => {
+  upload.array('files', 10)(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.message });
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No file uploaded' });
 
     try {
-      let text;
-      if (req.file.mimetype === 'application/pdf') {
-        const parser = new PDFParse({ data: req.file.buffer });
-        const result = await parser.getText();
-        await parser.destroy();
-        text = result.text;
-      } else {
-        const result = await mammoth.extractRawText({ buffer: req.file.buffer });
-        text = result.value;
-      }
-      res.json({ text });
+      const extracted = await Promise.all(
+        req.files.map(async (file) => ({ filename: file.originalname, text: await extractText(file) }))
+      );
+      const text =
+        extracted.length === 1
+          ? extracted[0].text
+          : extracted.map((f) => `--- ${f.filename} ---\n${f.text}`).join('\n\n');
+      res.json({ text, files: extracted.map((f) => f.filename) });
     } catch (extractErr) {
       console.error('Resume extraction failed', extractErr.message);
-      res.status(422).json({ error: 'Could not extract text from that file' });
+      res.status(422).json({ error: 'Could not extract text from one of those files' });
     }
   });
 });
