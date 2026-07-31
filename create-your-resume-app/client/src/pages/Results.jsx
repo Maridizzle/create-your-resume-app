@@ -42,7 +42,9 @@ export default function Results() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.getResults(id).then((r) => setResults(r.sheet_data)).catch(() => {});
+    api.getResults(id).then((r) => setResults(r.sheet_data)).catch((err) => {
+      console.error('Failed to load results:', err);
+    });
   }, [id]);
 
   async function handleRefresh() {

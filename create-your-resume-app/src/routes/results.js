@@ -65,13 +65,19 @@ router.post('/:clientId/refresh', async (req, res) => {
 
     const cached = await pool.query(
       'INSERT INTO results_cache (client_id, sheet_data) VALUES ($1, $2) RETURNING *',
-      [clientId, JSON.stringify(parsed)]
+      [clientId, parsed]
     );
 
     res.json(cached.rows[0]);
   } catch (err) {
-    console.error('Sheets pull failed', err.message);
-    res.status(502).json({ error: 'Could not reach Google Sheets' });
+    console.error('Sheets pull failed:', err.message, err.stack);
+    if (err.message && err.message.includes('invalid_grant')) {
+      res.status(401).json({ error: 'Google Sheets credentials expired' });
+    } else if (err.message && err.message.includes('notFound')) {
+      res.status(404).json({ error: 'Google Sheet not found' });
+    } else {
+      res.status(502).json({ error: 'Could not reach Google Sheets' });
+    }
   }
 });
 
