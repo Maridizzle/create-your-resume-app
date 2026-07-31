@@ -30,27 +30,41 @@ function parseJobHeader(raw) {
 }
 
 function parseJobRatings(rawJson) {
-  const jobs = JSON.parse(rawJson);
-  return jobs.map((job) => ({
-    ...parseJobHeader(job.job || ''),
-    skills: (job.skills || []).map(parseScoredLine),
-    activities: (job.activities || []).map(parseScoredLine),
-    achievements: (job.achievements || []).map(parseAchievementLine)
-  }));
+  if (!rawJson) return [];
+  try {
+    const jobs = JSON.parse(rawJson);
+    return jobs.map((job) => ({
+      ...parseJobHeader(job.job || ''),
+      skills: (job.skills || []).map(parseScoredLine),
+      activities: (job.activities || []).map(parseScoredLine),
+      achievements: (job.achievements || []).map(parseAchievementLine)
+    }));
+  } catch (err) {
+    console.error('Failed to parse job ratings:', err);
+    return [];
+  }
 }
 
 function parseEssayAnswers(rawText) {
-  const blocks = rawText.trim().split(/\n\s*\n/);
-  return blocks.map((block) => {
-    const lines = block.split('\n');
-    const question = (lines[0] || '').replace(/^Q\d+:\s*/, '').trim();
-    const answer = lines
-      .slice(1)
-      .join('\n')
-      .replace(/^A:\s*/, '')
-      .trim();
-    return { question, answer };
-  });
+  if (!rawText) return [];
+  try {
+    const blocks = rawText.trim().split(/\n\s*\n/);
+    return blocks
+      .map((block) => {
+        const lines = block.split('\n');
+        const question = (lines[0] || '').replace(/^Q\d+:\s*/, '').trim();
+        const answer = lines
+          .slice(1)
+          .join('\n')
+          .replace(/^A:\s*/, '')
+          .trim();
+        return { question, answer };
+      })
+      .filter((qa) => qa.question || qa.answer);
+  } catch (err) {
+    console.error('Failed to parse essay answers:', err);
+    return [];
+  }
 }
 
 module.exports = { parseJobRatings, parseEssayAnswers };
