@@ -179,13 +179,27 @@ router.post('/:clientId/link', async (req, res) => {
   }
 });
 
+// Returns the latest intake JSON version, but the client-facing link is
+// carried forward from whichever version it was generated on, even if
+// the intake JSON has since been regenerated into a newer version with
+// no link of its own, so a previously sent link is never lost from view.
 router.get('/:clientId', async (req, res) => {
   const result = await pool.query(
     'SELECT * FROM intake_json WHERE client_id = $1 ORDER BY version DESC LIMIT 1',
     [req.params.clientId]
   );
   if (!result.rows[0]) return res.status(404).json({ error: 'No intake JSON yet' });
-  res.json(result.rows[0]);
+
+  const latest = result.rows[0];
+  if (!latest.intake_url) {
+    const linked = await pool.query(
+      'SELECT intake_url FROM intake_json WHERE client_id = $1 AND intake_url IS NOT NULL ORDER BY version DESC LIMIT 1',
+      [req.params.clientId]
+    );
+    if (linked.rows[0]) latest.intake_url = linked.rows[0].intake_url;
+  }
+
+  res.json(latest);
 });
 
 module.exports = router;
